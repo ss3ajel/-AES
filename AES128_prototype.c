@@ -2,6 +2,20 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+//the logic of the entire algo 
+/*data
+key for encryption
+key expansion depend on bits of the original key
+loop{
+
+
+add round key to all bits of data
+subByt subtite the bytes by other values
+shift row 
+mix columns
+
+
+}until all expansion keys are used;*/
 
 
 
