@@ -13,6 +13,7 @@
 #include <poll.h>
 #include<time.h>
 #include<sys/time.h>
+//the goal is mimicking the nmap command//
 struct device {
     char ip[16];
     char mac[18];
