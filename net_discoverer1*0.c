@@ -13,7 +13,7 @@
 #include <poll.h>
 #include<time.h>
 #include<sys/time.h>
-//the goal is mimicking the nmap command//
+//custom device mapping :output id device s ip mac and the time seen
 struct device {
     char ip[16];
     char mac[18];
@@ -53,23 +53,29 @@ int main()
     t.tv_usec = 300000;// isana 300ms
 
     int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+    if (fd<0){
+        perror("no descriptor");
+        return 1;
+    }
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t));
     struct ifreq ifr;
 
     memset(&ifr,0,sizeof(ifr));
 
-    strcpy(ifr.ifr_name,"eth0");
+    strcpy(ifr.ifr_name,"wlo1");
     ioctl(fd,SIOCGIFINDEX,&ifr);
     int ifindex = ifr.ifr_ifindex;
     ioctl(fd,SIOCGIFHWADDR,&ifr);
+    struct ethhdr *eth =(struct ethhdr *)buffer;
+    memcpy(eth->h_dest,broadcast_mac,6);
+    eth->h_proto = htons(ETH_P_IP);
 
     unsigned char *my_mac =(unsigned char *)ifr.ifr_hwaddr.sa_data;
+    memcpy(eth->h_source,my_mac,6);
     ioctl(fd,SIOCGIFADDR,&ifr);
-
-     
-
-    struct sockaddr_in *ipaddr =
-        (struct sockaddr_in *)&ifr.ifr_addr;    
+    
+    
+ struct sockaddr_in *ipaddr =(struct sockaddr_in *)&ifr.ifr_addr;    
     uint32_t my_ip = ipaddr->sin_addr.s_addr;
     struct sockaddr_in *netmask_addr;
     ioctl(fd,SIOCGIFNETMASK,&ifr);
@@ -78,7 +84,7 @@ int main()
     struct in_addr network ;
     struct in_addr broadcast ;
     network.s_addr=my_ip&mask;
-    broadcast.s_addr=network.s_addr|mask;
+    broadcast.s_addr=network.s_addr|~mask;
     uint32_t net=network.s_addr;
     uint32_t brd=broadcast.s_addr;
     uint32_t net_h = ntohl(net);     
@@ -86,14 +92,11 @@ int main()
 
 
 
-    struct ethhdr *eth =(struct ethhdr *)buffer;
+    
 
+   
 
-    memcpy(eth->h_dest,broadcast_mac,6);
-
-    memcpy(eth->h_source,my_mac,6);
-
-    eth->h_proto = htons(ETH_P_IP);
+    
 
     struct iphdr *ip =(struct iphdr *)(buffer + sizeof(struct ethhdr));
     ip->ihl = 5;
@@ -111,9 +114,6 @@ int main()
     icmp->type = ICMP_ECHO;
     icmp->code = 0;
     icmp->un.echo.id = htons(1234);
-    
-    
-   
     struct sockaddr_ll device;
 
     memset(&device,0,sizeof(device));
@@ -125,18 +125,33 @@ int main()
     device.sll_halen = ETH_ALEN;
 
     memcpy(device.sll_addr, broadcast_mac, 6);
-    struct device d[20];//lets say i have lesss than 20 devices
+    struct device d[20];//lets say i have less than 20 devices
     int j=0;
+    int binded=bind(fd,(struct sockaddr*)&device,sizeof(device));
+    if (binded<0){
+       perror("not binded");
+       return 1;
+    }
+    printf("Scanning from %u to %u (%d addresses)\n", net_h, brd_h, brd_h - net_h);//stylish
     
-    for(uint32_t i=net+1;i<brd-1;i++){
-         ip->daddr = i;
+    for(uint32_t i=net_h+1;i<brd_h;i++){
+         ip->daddr = htonl(i);
+         ip->check = 0;
          ip->check = checksum((unsigned short *)ip,sizeof(struct iphdr));
          icmp->un.echo.sequence = htons(1);
+         icmp->checksum=0;
          icmp->checksum =checksum((unsigned short *)icmp, sizeof(struct icmphdr));
 
-        sendto(fd,buffer,sizeof(struct ethhdr) + sizeof(struct iphdr)+ sizeof(struct icmphdr), 0, (struct sockaddr *)&device, sizeof(device));
-         socklen_t len=sizeof(device);
-         int rec_len=recvfrom(fd,nbuffer,sizeof(nbuffer),0,(struct sockaddr*)&device,&len);
+         sendto(fd,buffer,sizeof(struct ethhdr) + sizeof(struct iphdr)+ sizeof(struct icmphdr), 0, (struct sockaddr *)&device, sizeof(device));
+        
+         struct sockaddr_ll receiver;
+         receiver.sll_family=AF_PACKET;
+         receiver.sll_ifindex = ifindex;
+         receiver.sll_halen = ETH_ALEN;
+         socklen_t len=sizeof( receiver);
+         
+
+         int rec_len=recvfrom(fd,nbuffer,sizeof(nbuffer),0,(struct sockaddr*)&receiver,&len);
          
         
        
@@ -159,7 +174,7 @@ int main()
       
         if(ricmp->type==ICMP_ECHOREPLY&&ricmp->un.echo.id==ntohs(1234)){
            
-            while(j<20){
+            if(j<20){
                 sprintf(d[j].mac, "%02x:%02x:%02x:%02x:%02x:%02x",reth->h_source[0],
                 reth->h_source[1],reth->h_source[2],reth->h_source[3],reth->h_source[4],reth->h_source[5]);
                 unsigned char *ip = (unsigned char *)&rip->saddr;
@@ -167,8 +182,9 @@ int main()
                 d[j].last_seen = time(NULL);
                 printf("%ld", (long)d[j].last_seen);
                 j++;
+               
             }
-                
+           
             
 
            
@@ -180,13 +196,18 @@ int main()
 
         }
 
-    }
-     
-    
-    
 
+    }
+      
+                
+    
+    
+  ///j is already 20 at  this point
 
     close(fd);
+     for (int k = 0; k < j; k++) {
+                   printf("%s -> %s (last seen %ld)\n", d[k].ip, d[k].mac, (long)d[k].last_seen);
+}
 
     return 0;
 }
