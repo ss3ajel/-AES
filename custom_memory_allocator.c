@@ -4,9 +4,10 @@
 #include<errno.h>
 #include<stdint.h>
 #include<stdbool.h>
-typedef struct  free_list{
-    __uint32_t size;
-    bool state;
+//node header
+typedef struct  free_list{                   //                       p  n s s
+    __uint32_t size;                  ///b1     b2        b3           b4         b5       a4swap with b4 for the split
+    bool state;                                     //                 a4
     struct free_list* nextf;
     struct free_list* prevf;
 } free_list;
@@ -20,13 +21,14 @@ void print_chunk(free_list *list){
 }
 free_list *split(free_list *f,__uint32_t allocated){
    free_list *h = (free_list*)((char*)f + sizeof(free_list) + allocated);
-    h->size=(f->size)-allocated;
+    h->size=(f->size)-allocated-sizeof(free_list);
     h->nextf=f->nextf;
     h->prevf=f->prevf;
+    if(f->prevf!=NULL){  f->prevf->nextf=h;}
+    if(f->nextf!=NULL){  f->nextf->prevf=h;}
     f->nextf=NULL;           
     f->prevf=NULL;
     f->size=allocated;
-    printf("node splitted");
     return f;
 }
 free_list *first_fit(free_list *h,__uint32_t allocated,__uint32_t minimum){
@@ -37,6 +39,7 @@ free_list *first_fit(free_list *h,__uint32_t allocated,__uint32_t minimum){
   while(b!=NULL){
     if(b->size>allocated&&b->size>minimum){
          b=split(b,allocated);
+          printf("\n%d",b->size);
          
          return b;
 
@@ -46,6 +49,7 @@ free_list *first_fit(free_list *h,__uint32_t allocated,__uint32_t minimum){
         b=b->nextf;
         
     }
+
    
 }
 free_list *nb=(free_list*)sbrk(1024+sizeof(free_list));
@@ -54,7 +58,8 @@ free_list *nb=(free_list*)sbrk(1024+sizeof(free_list));
     nb->nextf=NULL;
     nb->prevf=last;
     nb->state=0;
-    split(nb,allocated);
+    nb=split(nb,allocated);
+     printf("\n%d",nb->size);
   
        
 }
@@ -90,19 +95,20 @@ void coalece(free_list *l){
 }
 
 int main(){
+    ///run example  just random values
      size_t node_size = 1024;
     printf(" %zu bytes\n", node_size);
     free_list *chunk =(free_list *)sbrk(node_size+sizeof(free_list));
     chunk->size=node_size;
     chunk->state=0;
-    uint32_t mall=250;
     uint32_t min =50;
-    
-   
-    first_fit(chunk,mall,min);
-   
+    first_fit(chunk,200,min);
+    first_fit(chunk,300,min);
+    first_fit(chunk,200,min);
+    first_fit(chunk,300,min);
+    first_fit(chunk,100,min);
+    first_fit(chunk,800,min);
     coalece(chunk);
-    
     print_chunk(chunk);
   
     return 0;
