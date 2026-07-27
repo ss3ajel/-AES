@@ -3,10 +3,10 @@
 #include<unistd.h>
 #include<errno.h>
 #include<stdint.h>
-#include<stdbool.h>
+#include<stdbool.h>                //using the first fit algorithm
 //node header
 typedef struct  free_list{                   //                       p  n s s
-    __uint32_t size;                  ///b1     b2        b3           b4         b5       a4swap with b4 for the split
+    __uint32_t size;                  ///b1     b2        b3           b4         b5       a4swap with b4 for the split   
     bool state;                                     //                 a4
     struct free_list* nextf;
     struct free_list* prevf;
