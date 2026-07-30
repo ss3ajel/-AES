@@ -2,10 +2,10 @@
 #include<stdint.h>
 #include<string.h>
 #include <stddef.h>
+#include <unistd.h>
 
-//under construction just learning about bitmap allocator the code is over the place
-//2 just added a free function 
-//still nnot executable 
+
+//executable 
 
 #define MAX_PAGE 16550
 typedef  struct allocator{
@@ -13,10 +13,11 @@ typedef  struct allocator{
     int start_page;     
     int num_pages;      //
 }allocator;
+#define PAGE_SIZE 4096
 
 
- static unsigned char bitmap[MAX_PAGE][4096] = {0};//mapping the allotion
- static unsigned char bitmap_prc[MAX_PAGE][4096]={0};
+ static unsigned char bitmap[MAX_PAGE] = {0};//mapping the allotion
+
  
 
 allocator array[MAX_PAGE];
@@ -32,75 +33,64 @@ void fill_big_chungus(size_t bytes){
 
 void * bit_allocator(size_t size){
     char* base_ptr=big_chungus;
-   
     int n;
-   
-   if (size%4096==0){
-    n=size/4046;
-   }else{
-    n=(size/4046)+1;
-   }
-   //for swapping the free to allocated
+    n=(size+PAGE_SIZE-1)/PAGE_SIZE ;/// number of page required
+  
+   //for swapping the free to allocated // fixed
    int i=0;
    int j=0;
-   int d;
-   while(i<=n&&j<n){
+   while(i<n&&j<MAX_PAGE){
     if(bitmap[j]==0){
        i++; 
        j++; 
 
-    }else {
+    }
+
+    else{
        i=0;
        j++;
-       d=j;
+    
        continue;
-    }
-    
-    }
-    bitmap_prc[d][4096]=2;
- 
-    
-    for(int k=d;k<d+n-1;k++){
-        bitmap[k][4096]=1;
-        for(int e=k+1;e<d+n-1;e++){
-            bitmap_prc[e][4096];
+    }    
+}
+    for(int k=j-n;k<j+n-1;k++){
+        bitmap[k]=1;
         }
         
         
-      }
-    char* debut_ptr= base_ptr+ (4096 * d);
+      
+    char* debut_ptr= base_ptr+ (PAGE_SIZE  * (j-n));
     
     array[alloc_counter].start_ptr=debut_ptr;
-    array[alloc_counter].start_page=d;
+    array[alloc_counter].start_page=j-n;
     array[alloc_counter].num_pages=n;
     alloc_counter++;
     return debut_ptr;
 
 
 
+
 }
-void free_chungus(void** ptr){
+void free_chungus(void* ptr){
             for(int i=0;i<MAX_PAGE;i++){
-                if(array[bitmap_prc[i][4096]].start_ptr==ptr&&bitmap_prc[i]==2){
-                    free(ptr);
+                if(array[i].start_ptr==ptr){
+                    for(int k = array[i].start_page; k < array[i].start_page + array[i].num_pages-1; k++){
+                      bitmap[k] = 0;
+                      
+    }
+                  array[i].num_pages=0;
+                      array[i].start_page=0;
+                      array[i].start_ptr=NULL;
+
                 }
             }
-            
-                
-                    
-                }
-
-        
-
-
-
-void print_map(){}
+        }
 
 int main(){
    size_t total=500000;
    fill_big_chungus(total);
    size_t m=8192;
-   size_t l = m /4096;
+   size_t l=total/PAGE_SIZE;
   
    if (l> MAX_PAGE){
     printf("too much");
@@ -111,11 +101,27 @@ int main(){
    void* ptr2=bit_allocator(2000);
   
    void* ptr3=bit_allocator(6000);
+   printf("before free/////////////////////////////////////////////////////////////////////");
+   for(int i=0;i<l;i++){
+    printf("%d",bitmap[i]);
+   }
+   printf("____________________________________________________________________________________________________");
+   for(int i=0;i<l;i++){
+    printf("%d %d %p",array[i].start_page,array[i].num_pages,array[i].start_ptr);
+   }
   
    free_chungus(ptr1);
    free_chungus(ptr2);
    free_chungus(ptr3);
-
+   printf("after free////////////////////////////////////////////////////////////////////////");
+   for(int i=0;i<l;i++){
+    printf("%d",bitmap[i]);
+   }
+    printf("____________________________________________________________________________________________________");
+   for(int i=0;i<l;i++){
+    printf("%d %d %p",array[i].start_page,array[i].num_pages,array[i].start_ptr);
+   }
+    //the printing is messy and the output will nuke your eyes so just use 3 or 4 allocation 
   
    
    
