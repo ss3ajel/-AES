@@ -121,7 +121,7 @@ int main(){
    for(int i=0;i<l;i++){
     printf("%3d %3d %3p",array[i].start_page,array[i].num_pages,array[i].start_ptr);
    }
-    //the printing is messy and the output will nuke your eyes so just use 3 or 4 allocation 
+   
   
    
    
